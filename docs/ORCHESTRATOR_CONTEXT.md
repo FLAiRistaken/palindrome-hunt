@@ -22,9 +22,13 @@ Measured during the bootstrap (2 Nov 2026), on a 2-core Linux sandbox:
 
 Measured on Joe's M4 Pro (2 Nov 2026, P0-2): 126 bits in 7.2 to 7.8 s; one core about 273 M candidates/s; kill and resume proven (SIGKILL at 648 units, restart redid nothing logged); the default unit size leaves the 14 cores mostly idle because of per-unit log overhead (P1-1, #13). Details in `SPEC.md` section 7.
 
-Proposed, not yet confirmed:
-- Orchestrator chats on Sonnet 5.5 at `medium` (Joe, 2 Nov 2026; was Opus 5.5); implementation on Sonnet 5.5 (section 5).
-- Phase 2 gate replaced by Phase 1's Definition of Done, and Phases 2 and 3 swapped (`ROADMAP.md`, "Open decisions").
+Confirmed later (2 Nov 2026, Joe):
+- Orchestrator chats on Sonnet 5.5 at `medium` (was Opus 5.5); implementation on Sonnet 5.5 (section 5).
+- Phase 2 gate = Phase 1's Definition of Done (`ROADMAP.md`).
+- Wide integer type: hand-rolled u256, chosen from the P1-2 benchmark (#22, PR #23): within 9 to 33% of `bnum` on speed on the M4 Pro, no dependency, maps onto a GPU shader. The Windows PC run is a sanity check, not a blocker. Both wide types run at about a third of u128 speed per core.
+- Claude Code tasks run as a local session on Joe's Mac (prompt pasted by Joe) when his computer is linked; cloud only when it is not. The agent-dispatch MCP is parked until Joe says it is ready.
+
+Deferred by Joe: the order of Phases 2 and 3, and the license (`ROADMAP.md`, "Open decisions").
 
 Open: see `ROADMAP.md`, "Open decisions".
 
@@ -60,6 +64,7 @@ Adapted from the Pivot routing table (researched 20 Oct 2026; re-check when a mo
 | Joe | Anything on his Mac or Windows PC: benchmarks, cross-machine verification, GPU runs | n/a |
 
 What each can verify:
+- Claude Code runs locally on Joe's Mac by default (pinned toolchain, token-savior, his real hardware), so Mac benchmarks can be run by the agent; only the Windows PC stays with Joe. Cloud sessions are the fallback when the Mac isn't linked.
 - Build, `cargo test`, clippy and the smoke run: any agent whose sandbox has a Rust toolchain. Cloud Claude Code had one at bootstrap (it can't download a pinned toolchain through the proxy, so run `cargo +stable` there). Antigravity and Jules: unverified, check on first use.
 - Real throughput, all-cores behaviour on Apple Silicon, Windows behaviour and GPU: only Joe's machines (or local Claude Code on the Mac). CI proves correctness on all three OSes, not speed.
 
@@ -91,3 +96,4 @@ Branch protection for `main` (Joe sets it; orchestrator sessions can't change re
 - 0.3, 2 Nov 2026: section 5: token-savior checked on Rust in P0-5 (works on the Mac only).
 - 0.4, 2 Nov 2026: Phase 0 measurements recorded (section 2); PC half of P0-2 moved to Phase 1.
 - 0.5, 2 Nov 2026: orchestrator chats move from Opus 5.5 to Sonnet 5.5 at `medium` (Joe); Windows PC is a Ryzen 7 5800X3D on the same network as the Mac.
+- 0.6, 2 Nov 2026: decisions section updated (gate, wide integer type, local-first Claude Code, dispatch MCP parked); section 5 routing note.

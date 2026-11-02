@@ -45,7 +45,7 @@ Issues: P1-1 (#13) exists; the rest are created when Phase 1 starts.
 | Decision | Proposal | Needed by |
 | :--- | :--- | :--- |
 | Order of Phases 2 and 3 | Swap them: pruning first. Brute force costs about 2x per extra 4 bits, so 10x more machines buys about 13 bits; pruning should roughly double the reachable bits. A heavy length at 200 bits is about 2^49 candidates, days on one Mac; at 256 bits about 2^63, centuries even across a large fleet. | End of Phase 1; deferred by Joe (2 Nov 2026) until the wide engine's speed is known |
-| Wide integer type | Leaning hand-rolled fixed-width (u256 to start) over a crate, so the hot loop stays allocation-free and the GPU port has the same arithmetic. **Joe agreed (2 Nov 2026) to decide it from a short benchmark against a crate such as `bnum`, filed as a spike issue after P1-1 (#13) merges.** | Before the wide-integer work starts |
+| Wide integer type | **Decided (Joe, 2 Nov 2026): hand-rolled u256**, from the P1-2 benchmark (#22, PR #23, results in `SPEC.md` section 7): 9 to 33% from `bnum` on speed on the M4 Pro, no dependency, maps onto a GPU shader. The Windows PC run is a sanity check, not a blocker. | Closed |
 | Replacement for the met Phase 2 gate | **Decided (Joe, 2 Nov 2026):** Phase 1 Definition of Done, including cross-machine reproduction (see "Gate" above). | Closed |
 | License | TBD (decide in Phase 0). The repo is public; without a license nobody else may use the code. Rust convention is MIT OR Apache-2.0. | Before anyone else contributes, at the latest Phase 5; deferred by Joe (2 Nov 2026) |
 | Coordinator hosting | Railway plus Postgres (Joe already uses both). | Start of Phase 2 |
