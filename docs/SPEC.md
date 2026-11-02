@@ -119,3 +119,22 @@ Search 126 bits end to end on the M4 Pro at the default unit size (`unit_bits` 2
 The default unit size now runs as fast as `unit_bits` 24 and uses about 13 of 14 cores, so the results log is no longer the limit. Not measured: real power-loss durability, and the sync cost on Windows.
 
 Reading: one core does about 273 M candidates/s, and the engine scales linearly to 4 threads, then flattens at about 1.1 G/s at the default unit size. With 4x fewer units the same work runs 2.7x faster and uses about 13 of 14 cores, so the limit at the default is per-unit overhead, most likely the per-unit log sync done by one thread. This is a strong inference from timings, not a direct measurement of the sync. Fix: issue #13 (P1-1), group commit as described under Checkpointing. The three tables above are from before that fix; the table after them is the re-measurement. `unit_bits` 26 is slower than 24 because 64 units leave the last cores idle.
+
+### Wide integer spike (P1-2, #22; Apple M4 Pro, 14 cores, this Mac, 2 Nov 2026)
+
+Question: which integer type should the engine use past 126 bits? Candidates: a hand-rolled u256 (four u64 limbs, `benches/wide/u256.rs`) and `bnum` 0.14.4 `U256`. Both run the same code, `run_unit`'s hot loop written once over a trait (`benches/wide/engine.rs`): the Gray-code step (`n ^= mask`, test `n & mask`), the `n mod 10^6` update, the `n >= 10^d` length test, the table-driven decimal pass-1 reject (compare and subtract against k x 10^p) and the 64-bit-limb fold. Run it with `cargo bench --bench wide_int -- --label "<machine>"` (add `--threads 14` for the loaded run).
+
+Million candidates per second per core, median of 5 runs after a warm-up, 2^24 candidates per unit, single thread. The "vs" column is bnum divided by hand-rolled. The 14-thread columns run 14 units at once and show the per-core rate.
+
+| Bits | Free classes | u128 (today's engine) | Hand-rolled u256 | bnum U256 | bnum vs hand-rolled | 14 threads: hand-rolled | 14 threads: bnum |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 124 | 31 | 226.0 | 71.0 | 53.0 | 0.75x | 51.2 | 38.5 |
+| 128 | 31 | n/a | 75.0 | 60.3 | 0.80x | 52.5 | 42.0 |
+| 160 | 39 | n/a | 95.0 | 71.0 | 0.75x | 65.7 | 49.4 |
+| 192 | 47 | n/a | 93.0 | 77.0 | 0.83x | 65.5 | 56.7 |
+| 224 | 55 | n/a | 74.1 | 81.1 | 1.09x | 52.4 | 57.9 |
+| 252 | 63 | n/a | 105.1 | 92.5 | 0.88x | 73.0 | 65.4 |
+
+Repeat single-thread runs agreed within 3% on every row. All types produced identical candidates, pass1, fold and hits on every unit timed, and the u128 column is `run_unit` itself. The rate depends on the bit length (digit count, branch behaviour), so compare types within a row, not across rows. Not measured: the Windows PC (Ryzen 7 5800X3D); Joe runs the same command there.
+
+**Recommendation: hand-rolled u256.** It was faster than bnum at five of six lengths (by 14 to 33%) and slower at one (224 bits, by 9%), so on speed the two are close, and either way a wide engine runs at about a third of the u128 engine's per-core rate (measured at 124 bits, the only length both can run). The deciding factors are not speed. The hand-rolled type is about 60 lines (with comments) and has no dependency, and the loop's arithmetic (xor, and, compare and subtract with a borrow chain) maps limb for limb onto a shader; for a GPU port the limbs become eight u32 on WGSL (which has no u64) or stay four u64 on Metal and CUDA. bnum is a Rust-only crate, so a GPU port would have to rewrite the arithmetic anyway, and it would add a dependency for no clear speed gain. Caveats: the hand-rolled loop is untuned (a fused compare-and-subtract might gain more), only bnum 0.14.4 was tested (earlier versions stored u64 digits), the PC is unmeasured, and the exact decimal fallback (reached about once per million candidates) uses u128 division and would stay on the CPU.
