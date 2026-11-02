@@ -62,7 +62,7 @@ What each can verify:
 
 Every agent prompt states agent, model, effort and plan vs direct mode; what must change and how it is proven; `Closes #N`, the `phase:` label and the PR template; that the agent never merges and never touches secrets or deployment settings; and that it runs as one session per task.
 
-Navigation tooling (token-savior or similar): not assumed to work on Rust. Check it in P0-5; until that passes, prompts don't mention it.
+Navigation tooling (token-savior): works on Rust (checked 2 Nov 2026, P0-5). `find_symbol Layout` returned `src/layout.rs` lines 15-21 (the struct) and `get_function_source run_unit` returned the full function from `src/unit.rs`. `.mcp.json` uses an absolute Mac path for `uvx`, so the server only starts on Joe's Mac; on the PC, in cloud Claude Code and in Jules prompts use plain Read/Grep.
 
 ## 6. Verification and CI
 
@@ -85,3 +85,4 @@ Branch protection for `main` (Joe sets it; orchestrator sessions can't change re
 
 - 0.1, 2 Nov 2026: created from the plan agreed in chat and the Pivot workflow (skill `new-project-bootstrap`). Rust profile derived for this project; the skill has no Rust profile yet.
 - 0.2, 2 Nov 2026: section 6 corrected: docs-only PRs skip steps, not jobs (see above).
+- 0.3, 2 Nov 2026: section 5: token-savior checked on Rust in P0-5 (works on the Mac only).
