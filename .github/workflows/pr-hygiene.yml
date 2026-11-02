@@ -1,0 +1,37 @@
+name: pr-hygiene
+
+# Reports a missing `Closes #N` or `phase:<n>` label. Separate from CI so that adding a label
+# doesn't re-run the three-OS test matrix. Not a required check.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    name: PR has Closes #N and a phase label
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check body and labels
+        env:
+          ACTOR: ${{ github.actor }}
+          BODY: ${{ github.event.pull_request.body }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          if [ "$ACTOR" = "dependabot[bot]" ]; then
+            echo "Skipping dependency bot PR."
+            exit 0
+          fi
+          fail=0
+          if ! printf '%s' "$BODY" | grep -Eiq '(closes|fixes|resolves)[[:space:]]+#[0-9]+'; then
+            echo "::error::PR body needs 'Closes #N'."
+            fail=1
+          fi
+          if ! printf '%s' "$LABELS" | grep -Eq '"phase:[0-9a-z]+"'; then
+            echo "::error::PR needs a phase:<n> label."
+            fail=1
+          fi
+          exit "$fail"

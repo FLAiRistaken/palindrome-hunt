@@ -1,0 +1,24 @@
+name: Bug
+description: Something behaves differently from the spec
+title: "Bug: "
+labels: ["type:bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got. OS, CPU and `palhunt --version`; attach the relevant line from results.jsonl if a unit is involved.
+    validations:
+      required: true
+  - type: textarea
+    id: spec
+    attributes:
+      label: Which part of the spec or roadmap it breaks
+      description: Link the section of docs/SPEC.md or the roadmap Definition of Done.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: How we'll know it's fixed. A failing test first is ideal.
+    validations:
+      required: true

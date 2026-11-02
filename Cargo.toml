@@ -1,0 +1,16 @@
+[package]
+name = "palhunt"
+version = "0.1.0"
+edition = "2024"
+description = "Search for numbers that are palindromes in base 2, base 10 and base 16 at once"
+repository = "https://github.com/FLAiRistaken/palindrome-hunt"
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive"] }
+rayon = "1.12.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1

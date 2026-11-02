@@ -1,0 +1,5 @@
+/target
+palhunt-state/
+ci-state/
+status.txt
+.DS_Store
