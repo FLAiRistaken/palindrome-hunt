@@ -3,3 +3,8 @@ palhunt-state/
 ci-state/
 status.txt
 .DS_Store
+
+# token-savior
+.token-savior-cache.json
+.codebase-index-cache.json
+.token-savior-checkpoints/
