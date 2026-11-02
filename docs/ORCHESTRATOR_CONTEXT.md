@@ -66,7 +66,7 @@ Navigation tooling (token-savior or similar): not assumed to work on Rust. Check
 
 ## 6. Verification and CI
 
-- CI is the source of truth. Required checks: "lint", "test (ubuntu-latest)", "test (macos-latest)" and "test (windows-latest)". A docs-only PR skips them at job level and they count as passing. `pr-hygiene` reports a missing `Closes #N` or `phase:` label but is not required.
+- CI is the source of truth. Required checks: "lint", "test (ubuntu-latest)", "test (macos-latest)" and "test (windows-latest)". Each job always runs, so each reports under its real name; on a docs-only PR the `changes` job outputs code=false and every step of `lint` and `test` is skipped, so the jobs finish green in seconds. Never skip at job level: a job-level `if:` on the matrix job reports one check literally named `test (${{ matrix.os }})`, the three real names never appear and the PR is blocked forever (found on PR #6, fixed in #8). `pr-hygiene` reports a missing `Closes #N` or `phase:` label but is not required.
 - The orchestrator's review comment on a PR counts as the verify pass for Antigravity and Jules branches. It reads the diff, confirms CI is green and lists anything CI can't see.
 - Joe verifies anything only his machines can show (speed, GPU, two-machine runs). Nothing is "done" until it has run there.
 
@@ -84,3 +84,4 @@ Branch protection for `main` (Joe sets it; orchestrator sessions can't change re
 ## Changelog
 
 - 0.1, 2 Nov 2026: created from the plan agreed in chat and the Pivot workflow (skill `new-project-bootstrap`). Rust profile derived for this project; the skill has no Rust profile yet.
+- 0.2, 2 Nov 2026: section 6 corrected: docs-only PRs skip steps, not jobs (see above).
