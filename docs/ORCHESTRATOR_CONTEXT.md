@@ -23,7 +23,7 @@ Measured during the bootstrap (2 Nov 2026), on a 2-core Linux sandbox:
 Measured on Joe's M4 Pro (2 Nov 2026, P0-2): 126 bits in 7.2 to 7.8 s; one core about 273 M candidates/s; kill and resume proven (SIGKILL at 648 units, restart redid nothing logged); the default unit size leaves the 14 cores mostly idle because of per-unit log overhead (P1-1, #13). Details in `SPEC.md` section 7.
 
 Proposed, not yet confirmed:
-- Orchestrator chats on Opus 5.5 at `medium`; implementation on Sonnet 5.5 (section 5).
+- Orchestrator chats on Sonnet 5.5 at `medium` (Joe, 2 Nov 2026; was Opus 5.5); implementation on Sonnet 5.5 (section 5).
 - Phase 2 gate replaced by Phase 1's Definition of Done, and Phases 2 and 3 swapped (`ROADMAP.md`, "Open decisions").
 
 Open: see `ROADMAP.md`, "Open decisions".
@@ -50,7 +50,8 @@ Adapted from the Pivot routing table (researched 20 Oct 2026; re-check when a mo
 
 | Agent and model | Use it here for | Effort |
 | :--- | :--- | :--- |
-| Opus 5.5 | Orchestrator chats; the wide-integer engine, the pruning engine, the coordinator's lease and trust logic, reviews of anything touching invariants 1 to 4 | `medium`; `high` for engine correctness |
+| Sonnet 5.5 (claude.ai Project chat) | Orchestrator chats | `medium` |
+| Opus 5.5 | The wide-integer engine, the pruning engine, the coordinator's lease and trust logic, reviews of anything touching invariants 1 to 4 | `medium`; `high` for engine correctness |
 | Sonnet 5.5 (Claude Code, local or cloud) | Well-specified features, CLI, tests, CI fixes, docs | `medium`; `high` for longer tasks; `low` only for read-only verification with each check's output pasted |
 | Haiku 5.5 | Tiny mechanical chores | `medium` |
 | Antigravity, Gemini 3.8 Flash | Mechanical multi-file sweeps with grep-checkable acceptance | `low` or `medium` |
@@ -89,3 +90,4 @@ Branch protection for `main` (Joe sets it; orchestrator sessions can't change re
 - 0.2, 2 Nov 2026: section 6 corrected: docs-only PRs skip steps, not jobs (see above).
 - 0.3, 2 Nov 2026: section 5: token-savior checked on Rust in P0-5 (works on the Mac only).
 - 0.4, 2 Nov 2026: Phase 0 measurements recorded (section 2); PC half of P0-2 moved to Phase 1.
+- 0.5, 2 Nov 2026: orchestrator chats move from Opus 5.5 to Sonnet 5.5 at `medium` (Joe); Windows PC is a Ryzen 7 5800X3D on the same network as the Mac.

@@ -6,7 +6,7 @@ Phases 1 to 5 come from Joe's brief and the plan agreed in chat on 2 Nov 2026 (e
 
 ## Gate between phases
 
-Confirmed by Joe (2 Nov 2026): the coordinator (Phase 2) starts only once the single-machine engine has verified every candidate to 100 bits and matches brute force exactly. **That gate was met during the bootstrap** (126 bits in 41 seconds, brute force matched to 28 bits), so it no longer holds anything back. Proposed replacement, not yet confirmed: Phase 2 starts only when Phase 1's Definition of Done is met, including results reproducing exactly on Joe's Mac and PC.
+Confirmed by Joe (2 Nov 2026): the coordinator (Phase 2) starts only once the single-machine engine has verified every candidate to 100 bits and matches brute force exactly. **That gate was met during the bootstrap** (126 bits in 41 seconds, brute force matched to 28 bits), so it no longer holds anything back. **Replacement confirmed by Joe (2 Nov 2026):** Phase 2 starts only when Phase 1's Definition of Done is met, including results reproducing exactly on Joe's Mac and PC.
 
 Tooling, process and extra features are not a way around the gate: a change that isn't needed to finish the current phase waits for it, or gets filed as a `type:chore` issue.
 
@@ -44,12 +44,12 @@ Issues: P1-1 (#13) exists; the rest are created when Phase 1 starts.
 
 | Decision | Proposal | Needed by |
 | :--- | :--- | :--- |
-| Order of Phases 2 and 3 | Swap them: pruning first. Brute force costs about 2x per extra 4 bits, so 10x more machines buys about 13 bits; pruning should roughly double the reachable bits. A heavy length at 200 bits is about 2^49 candidates, days on one Mac; at 256 bits about 2^63, centuries even across a large fleet. | End of Phase 1 |
-| Wide integer type | Hand-rolled fixed-width (u256 to start) over a crate, so the hot loop stays allocation-free and the GPU port has the same arithmetic. Decide after a quick benchmark against a crate such as `bnum`. | Start of Phase 1 |
-| Replacement for the met Phase 2 gate | Phase 1 Definition of Done, including cross-machine reproduction (see "Gate" above). | Start of Phase 1 |
-| License | TBD (decide in Phase 0). The repo is public; without a license nobody else may use the code. Rust convention is MIT OR Apache-2.0. | Before anyone else contributes, at the latest Phase 5 |
+| Order of Phases 2 and 3 | Swap them: pruning first. Brute force costs about 2x per extra 4 bits, so 10x more machines buys about 13 bits; pruning should roughly double the reachable bits. A heavy length at 200 bits is about 2^49 candidates, days on one Mac; at 256 bits about 2^63, centuries even across a large fleet. | End of Phase 1; deferred by Joe (2 Nov 2026) until the wide engine's speed is known |
+| Wide integer type | Leaning hand-rolled fixed-width (u256 to start) over a crate, so the hot loop stays allocation-free and the GPU port has the same arithmetic. **Joe agreed (2 Nov 2026) to decide it from a short benchmark against a crate such as `bnum`, filed as a spike issue after P1-1 (#13) merges.** | Before the wide-integer work starts |
+| Replacement for the met Phase 2 gate | **Decided (Joe, 2 Nov 2026):** Phase 1 Definition of Done, including cross-machine reproduction (see "Gate" above). | Closed |
+| License | TBD (decide in Phase 0). The repo is public; without a license nobody else may use the code. Rust convention is MIT OR Apache-2.0. | Before anyone else contributes, at the latest Phase 5; deferred by Joe (2 Nov 2026) |
 | Coordinator hosting | Railway plus Postgres (Joe already uses both). | Start of Phase 2 |
 
 Small questions found while writing the issues (answer before the issue starts):
-- Which CPU is in the Windows PC, and is it on the same network as the Mac? (P0-2 copies a results log between them.)
+- ~~Which CPU is in the Windows PC, and is it on the same network as the Mac?~~ Answered by Joe, 2 Nov 2026: Ryzen 7 5800X3D, same network as the Mac (both reach his Raspberry Pi Pi-hole), so the cross-verification log copy can go over the LAN.
 - Should the default state directory move from `./palhunt-state` to the platform data directory before Phase 2? Not needed for Phase 0.
