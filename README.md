@@ -34,7 +34,7 @@ cargo build --release
 cargo test --release
 ```
 
-Results go to `./palhunt-state/results.jsonl` (change with `--state-dir`). Stopping the search at any point loses at most the units in flight.
+Results go to `./palhunt-state/results.jsonl` (change with `--state-dir`). Stopping the search at any point (even killing it) loses only the last fraction of a second of finished work (about 0.2 s), which is redone on restart; see `docs/SPEC.md` (Checkpointing).
 
 ## Setting up the repo (once)
 
