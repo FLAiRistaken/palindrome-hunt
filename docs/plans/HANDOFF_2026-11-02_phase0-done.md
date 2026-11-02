@@ -14,7 +14,6 @@ Previous handoff: `docs/plans/HANDOFF_2026-11-02.md` (history only).
 ## Open now
 - Nothing in flight. Open issues: #12 (low priority, parked), #13 (P1-1, ready).
 - Joe: when the PC is available, run the engine there and cross-verify both ways (now a Phase 1 Definition of Done item). Which CPU the PC has, and whether the two machines share a network, are still unanswered.
-- Joe: delete the stale remote branch `origin/p0/1-verify-skeleton` if it is still there (the orchestrator's delete was blocked by the tool's safety check).
 
 ## Next, in order
 1. P1-1 (#13): take the results log off the critical path. Cloud Claude Code, Sonnet 5.5, `high`, direct mode. Orchestrator reviews the diff against invariants 1 to 4. Joe measures the speedup on the M4 Pro (CI can't).
