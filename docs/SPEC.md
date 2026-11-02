@@ -109,4 +109,13 @@ Search 126 bits end to end on the M4 Pro at the default unit size (`unit_bits` 2
 | 24 | 256 | 1.6 s | 2.6 G/s | about 12.6 |
 | 26 | 64 | 1.8 s | 2.3 G/s | about 10.9 |
 
-Reading: one core does about 273 M candidates/s, and the engine scales linearly to 4 threads, then flattens at about 1.1 G/s at the default unit size. With 4x fewer units the same work runs 2.7x faster and uses about 13 of 14 cores, so the limit at the default is per-unit overhead, most likely the per-unit log sync done by one thread. This is a strong inference from timings, not a direct measurement of the sync. Fix: issue #13 (P1-1), group commit as described under Checkpointing. The numbers in these tables are from before that fix; the re-measurement at `unit_bits` 22 is still to be taken on the M4 Pro. `unit_bits` 26 is slower than 24 because 64 units leave the last cores idle.
+### After group commit (P1-1, #13; M4 Pro, 14 threads, bits 123 to 124, measured by Joe, 2 Nov 2026)
+
+| `unit_bits` | Runs | Wall time | Rate | User CPU / wall |
+| ---: | ---: | ---: | ---: | ---: |
+| 22 (default) | 3 | 1.56 to 1.70 s | about 2.7 G/s | about 13.1 |
+| 24 | 1 | 1.62 s | about 2.7 G/s | about 12.3 |
+
+The default unit size now runs as fast as `unit_bits` 24 and uses about 13 of 14 cores, so the results log is no longer the limit. Not measured: real power-loss durability, and the sync cost on Windows.
+
+Reading: one core does about 273 M candidates/s, and the engine scales linearly to 4 threads, then flattens at about 1.1 G/s at the default unit size. With 4x fewer units the same work runs 2.7x faster and uses about 13 of 14 cores, so the limit at the default is per-unit overhead, most likely the per-unit log sync done by one thread. This is a strong inference from timings, not a direct measurement of the sync. Fix: issue #13 (P1-1), group commit as described under Checkpointing. The three tables above are from before that fix; the table after them is the re-measurement. `unit_bits` 26 is slower than 24 because 64 units leave the last cores idle.
