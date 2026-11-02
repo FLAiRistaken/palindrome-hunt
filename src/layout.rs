@@ -7,9 +7,14 @@
 //! of bits: every number in the search space is "the top-bit class, plus any subset of the
 //! free classes". That is about 2^(L/4) numbers instead of 2^L.
 
+use crate::u256::{Limbs, bit};
+
 /// Largest bit length the u128 engine supports. 2^126 has 38 decimal digits, so every power
-/// of ten the decimal check needs fits in a u128. Wider numbers need a big-integer engine.
+/// of ten the decimal check needs fits in a u128. Longer lengths run on the u256 engine.
 pub const MAX_BITS: u32 = 126;
+/// Largest bit length the u256 engine (and the CLI) supports. 2^255 < 10^77 < 2^256, so every
+/// power of ten the wide decimal check needs fits in 256 bits.
+pub const MAX_WIDE_BITS: u32 = 255;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Layout {
@@ -38,6 +43,21 @@ impl Layout {
     }
 }
 
+/// The same layout with masks as 256-bit limbs, for lengths up to `MAX_WIDE_BITS`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WideLayout {
+    pub bits: u32,
+    pub base: Limbs,
+    /// One mask per free class, ordered by lowest bit ascending.
+    pub masks: Vec<Limbs>,
+}
+
+impl WideLayout {
+    pub fn free(&self) -> u32 {
+        self.masks.len() as u32
+    }
+}
+
 struct Dsu(Vec<usize>);
 
 impl Dsu {
@@ -56,10 +76,19 @@ impl Dsu {
     }
 }
 
-/// Layout of all L-bit numbers (top bit set) that are palindromes in base 2 and 16.
-/// Returns `None` when no such number exists at this length.
-pub fn layout(bits: u32) -> Option<Layout> {
-    assert!((1..=MAX_BITS).contains(&bits), "bits must be in 1..={MAX_BITS}");
+fn low_bit(l: Limbs) -> u32 {
+    (0..4)
+        .find(|&i| l[i] != 0)
+        .map_or(256, |i| 64 * i as u32 + l[i].trailing_zeros())
+}
+
+/// Layout of all L-bit numbers (top bit set) that are palindromes in base 2 and 16, for
+/// 1 <= L <= 255. Returns `None` when no such number exists at this length.
+pub fn wide_layout(bits: u32) -> Option<WideLayout> {
+    assert!(
+        (1..=MAX_WIDE_BITS).contains(&bits),
+        "bits must be in 1..={MAX_WIDE_BITS}"
+    );
     let l = bits as usize;
     let mut dsu = Dsu((0..l).collect());
     for i in 0..l {
@@ -84,15 +113,16 @@ pub fn layout(bits: u32) -> Option<Layout> {
     if zero_roots.contains(&top) {
         return None;
     }
-    let mut classes: Vec<(usize, u128)> = Vec::new(); // (root, mask)
+    let mut classes: Vec<(usize, Limbs)> = Vec::new(); // (root, mask)
     for i in 0..l {
         let r = dsu.find(i);
+        let b = bit(i as u32);
         match classes.iter_mut().find(|(root, _)| *root == r) {
-            Some((_, m)) => *m |= 1u128 << i,
-            None => classes.push((r, 1u128 << i)),
+            Some((_, m)) => (0..4).for_each(|k| m[k] |= b[k]),
+            None => classes.push((r, b)),
         }
     }
-    let mut base = 0u128;
+    let mut base = [0u64; 4];
     let mut masks = Vec::new();
     for (root, mask) in classes {
         if root == top {
@@ -101,6 +131,18 @@ pub fn layout(bits: u32) -> Option<Layout> {
             masks.push(mask);
         }
     }
-    masks.sort_by_key(|m| m.trailing_zeros());
-    Some(Layout { bits, base, masks })
+    masks.sort_by_key(|&m| low_bit(m));
+    Some(WideLayout { bits, base, masks })
+}
+
+/// Layout of all L-bit numbers (top bit set) that are palindromes in base 2 and 16, for the
+/// u128 engine (1 <= L <= 126). The same classes as `wide_layout`, as u128 masks.
+pub fn layout(bits: u32) -> Option<Layout> {
+    assert!((1..=MAX_BITS).contains(&bits), "bits must be in 1..={MAX_BITS}");
+    let to_u128 = |l: Limbs| (l[0] as u128) | ((l[1] as u128) << 64);
+    wide_layout(bits).map(|w| Layout {
+        bits,
+        base: to_u128(w.base),
+        masks: w.masks.into_iter().map(to_u128).collect(),
+    })
 }

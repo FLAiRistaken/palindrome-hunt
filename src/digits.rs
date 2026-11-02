@@ -12,6 +12,32 @@ pub fn is_palindrome(n: u128, base: u128) -> bool {
     digits.iter().eq(digits.iter().rev())
 }
 
+/// Reference check for 256-bit values (little-endian u64 limbs): is `l` a palindrome in `base`?
+/// Zero counts as a palindrome, as in `is_palindrome`. Deliberately simple and independent of
+/// the fast path: the digits come from double-and-add over a digit vector, one bit at a time
+/// from the top, with no division of the wide value and no power-of-ten table.
+pub fn is_palindrome_wide(l: [u64; 4], base: u32) -> bool {
+    let d = digits_wide(l, base);
+    d.iter().eq(d.iter().rev())
+}
+
+/// Little-endian digits of `l` in `base` (empty for zero), for the reference check.
+fn digits_wide(l: [u64; 4], base: u32) -> Vec<u32> {
+    let mut digits: Vec<u32> = Vec::with_capacity(256);
+    for bit in (0..256).rev() {
+        let mut carry = ((l[bit / 64] >> (bit % 64)) & 1) as u32;
+        for d in digits.iter_mut() {
+            let v = *d * 2 + carry;
+            *d = v % base;
+            carry = v / base;
+        }
+        if carry > 0 {
+            digits.push(carry);
+        }
+    }
+    digits
+}
+
 /// Number of digits of `n` in `base` (0 has one digit).
 pub fn digit_count(n: u128, base: u128) -> u32 {
     let (mut d, mut v) = (1, n / base);

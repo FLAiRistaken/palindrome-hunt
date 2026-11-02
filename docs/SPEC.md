@@ -1,6 +1,6 @@
 # Palindrome Hunt: spec
 
-Version 0.1, 2 Nov 2026. What the search does, why it is shaped the way it is, and the formats other machines must agree on. `ROADMAP.md` decides order of work.
+Version 0.2, 2 Nov 2026 (0.2: the u256 engine for 127 to 255 bits, #26). What the search does, why it is shaped the way it is, and the formats other machines must agree on. `ROADMAP.md` decides order of work.
 
 ## 1. The question
 
@@ -28,7 +28,14 @@ For one length, the free classes are walked in Gray-code order, so each step fli
 
 Throughput measured on the bootstrap machine (2 cores, Linux x86-64): 150 to 210 million candidates per second. Everything below 2^126 took 41 seconds.
 
-The engine uses u128, so it stops at 126 bits (10^38 is the largest power of ten that fits). Beyond that needs a wider integer type (Phase 1).
+There are two engines, and the bit length decides which one runs (`unit::engine_for`):
+
+| Bits | Engine id | Integer | Why |
+| :--- | :--- | :--- | :--- |
+| 1 to 126 | `cpu-gray-u128-v1` | native u128 | 10^38 is the largest power of ten that fits in a u128, so the decimal tables stop at 126 bits. Unchanged since Phase 0. |
+| 127 to 255 | `cpu-gray-u256-v1` | hand-rolled u256: four u64 limbs, little endian (`src/u256.rs`), chosen in P1-2 (section 7) | 2^255 < 10^77 < 2^256, so every power of ten up to 10^77 fits. |
+
+The u256 engine (`src/wide.rs`) is the same loop as the u128 engine, step for step: the same Gray-code order, the same `n mod 10^6` residue, the same k x 10^p tables (to 10^76), the same pass-1 rule and the same fold. The only addition is the exact fallback after six digit pairs: it checks the decimal digits with an allocation-free routine (division by 10^19 into a stack buffer) instead of the u128 reference. It only passes candidates on. A hit counts only after the wide reference `digits::is_palindrome_wide` (digits by double-and-add, sharing no code with the fast path) confirms it in base 2, 10 and 16. The u256 engine can run any length, and the tests prove it returns the u128 engine's exact `candidates`, `pass1`, `fold` and `hits` for every unit of every length up to 100 bits, and for sampled units of every length from 101 to 126 bits (more and larger units at 118 to 126). `search` still uses u128 up to 126 bits because it is about three times faster per core there.
 
 ## 5. Work units (the distribution format)
 
@@ -40,17 +47,19 @@ A unit is a contiguous range of Gray-code indices for one length:
 
 A unit is fully defined by (format version, engine, bits, unit_bits, unit). Its result must be identical on every machine except `elapsed_ms`.
 
+The u256 engine did not change the record format: `v` stays 1 and no field was added, removed or changed in meaning. `unit` and `units` stay u64 because the free classes peak at 63 (at 251, 252 and 255 bits), so a length has at most 2^63 units. The fold already XORs in every 64-bit limb, and `n` and `hex` were already strings. Only the engine id is new.
+
 ### Unit result (one JSON object per line in `results.jsonl`)
 
 | Field | Meaning |
 | :--- | :--- |
 | `v` | Format version, currently 1. Bump when any field's meaning changes. |
-| `engine` | Algorithm id, currently `cpu-gray-u128-v1`. Results from different engines are never mixed silently. |
+| `engine` | Algorithm id: `cpu-gray-u128-v1` for 1 to 126 bits, `cpu-gray-u256-v1` (four u64 limbs) for 127 to 255 bits (section 4). Each length has exactly one engine; the loader ignores a record whose engine is not the one for its length, so results from different engines are never mixed silently. |
 | `bits`, `unit`, `units`, `unit_bits` | Which unit. |
 | `candidates` | Candidates tested; must equal 2^unit_bits. |
 | `pass1` | Candidates whose outermost decimal digits matched. |
 | `fold` | 64-bit hash, hex, over every candidate that passed the first pair, in Gray-code order: `fold = (rotl(fold, 5) ^ lo64(n) ^ hi64(n)) * 0x9E3779B97F4A7C15` (wrapping). A machine that skipped work can't produce it. A wider engine must XOR in every 64-bit limb, so results below 128 bits stay identical. |
-| `hits` | Each with `n` (decimal string), `hex`, `base12`, `trivial` (n < 16). |
+| `hits` | Each with `n` (exact decimal string), `hex` (exact lowercase hex, no prefix), `base12`, `trivial` (n < 16). Strings, so values of any width are written without loss. |
 | `elapsed_ms` | Wall time; ignored when comparing machines. |
 
 ### Checkpointing
@@ -74,13 +83,15 @@ The writer is a single thread, so lines never interleave. The order of lines in 
 ## 6. CLI
 
 ```
-palhunt search --to-bits N [--from-bits M] [--unit-bits B] [--state-dir DIR] [--threads T]
-palhunt status [--to-bits N] [--state-dir DIR]
+palhunt search --to-bits N [--from-bits M] [--unit-bits B] [--state-dir DIR] [--threads T]   # 1 <= M <= N <= 255
+palhunt status [--to-bits N] [--state-dir DIR]                                              # N <= 255, default 255
 palhunt verify [--sample N] [--state-dir DIR]
 palhunt brute  [--to-bits N]        # independent cross-check, up to 36 bits
 ```
 
 The default state directory is `./palhunt-state`.
+
+A local `search` refuses a length that would need more than 2^24 units (`MAX_LOCAL_UNITS`), i.e. more than `unit_bits` + 24 free classes. At the default `unit_bits` 22 that stops a local run at the first length with more than 46 free classes, which is 187 bits. Those lengths are coordinator (Phase 2) or pruning (Phase 3) work.
 
 ## 7. Results so far
 
@@ -138,3 +149,19 @@ Million candidates per second per core, median of 5 runs after a warm-up, 2^24 c
 Repeat single-thread runs agreed within 3% on every row. All types produced identical candidates, pass1, fold and hits on every unit timed, and the u128 column is `run_unit` itself. The rate depends on the bit length (digit count, branch behaviour), so compare types within a row, not across rows. Not measured: the Windows PC (Ryzen 7 5800X3D); Joe runs the same command there.
 
 **Recommendation: hand-rolled u256.** It was faster than bnum at five of six lengths (by 14 to 33%) and slower at one (224 bits, by 9%), so on speed the two are close, and either way a wide engine runs at about a third of the u128 engine's per-core rate (measured at 124 bits, the only length both can run). The deciding factors are not speed. The hand-rolled type is about 60 lines (with comments) and has no dependency, and the loop's arithmetic (xor, and, compare and subtract with a borrow chain) maps limb for limb onto a shader; for a GPU port the limbs become eight u32 on WGSL (which has no u64) or stay four u64 on Metal and CUDA. bnum is a Rust-only crate, so a GPU port would have to rewrite the arithmetic anyway, and it would add a dependency for no clear speed gain. Caveats: the hand-rolled loop is untuned (a fused compare-and-subtract might gain more), only bnum 0.14.4 was tested (earlier versions stored u64 digits), the PC is unmeasured, and the exact decimal fallback (reached about once per million candidates) uses u128 division and would stay on the CPU.
+
+### Wide engine, first runs past 126 bits (P1-3, #26; Apple M4 Pro, 14 logical cores, this Mac, 2 Nov 2026)
+
+`palhunt search --from-bits 127 --to-bits 130` at the default `unit_bits` 22, release build, fresh state directory, engine `cpu-gray-u256-v1`:
+
+| Bits | Free classes | Units | Candidates | Wall time | Rate (14 threads) |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 127 | 31 | 512 | 2.15 x 10^9 | 3.31 s | 649 M/s |
+| 128 | 31 | 512 | 2.15 x 10^9 | 2.94 s | 730 M/s |
+| 129 | 16 | 1 | 65,536 | 0.01 s | n/a (one unit) |
+| 130 | 16 | 1 | 65,536 | 0.01 s | n/a (one unit) |
+| 127 to 130 | | 1026 | 4.30 x 10^9 | **6.3 s** (`time`: 6.27 s, 78 s user CPU) | 685 M/s, about 49 M/s per core |
+
+One thread, `search --from-bits 128 --to-bits 128 --threads 1`: 2.15 x 10^9 candidates in 28.96 s, **74.1 M candidates/s per core**. That matches the spike's 75.0 at 128 bits, so moving the loop into `src/` cost nothing. The loaded rate per core (about 49 M/s) is lower than the single-thread rate, as it was in the spike (52.5 at 128 bits with 14 threads). `verify --sample 50` re-ran 50 of the 1026 units identically. No hits at 127 to 130 bits. Not measured: the Windows PC (Ryzen 7 5800X3D).
+
+Note on the spike's bnum column. In the benchmark, bnum's `U256` now sits in a newtype (`benches/wide/engine.rs`), because the `Wide` trait moved into the library and the orphan rule forbids implementing it on bnum's type directly. With that wrapper, `cargo bench --bench wide_int -- --bits 128,160,252` on this Mac gives hand-rolled 75.7 / 95.8 / 107.8 and bnum 94.3 / 121.7 / 173.6 M/s per core (bnum 1.25x to 1.61x). The same command on `main` the same day gives hand-rolled 75.7 / 96.3 / 107.4 and bnum 61.9 / 73.6 / 94.1 (0.76x to 0.88x, as in the spike). The hand-rolled type, which is what the engine uses, is unchanged; bnum's rate depends on how it is wrapped. Not investigated further here. It may reopen the speed side of the P1-2 choice, but the reasons recorded there (no dependency, a limb layout that ports to a shader) still hold.

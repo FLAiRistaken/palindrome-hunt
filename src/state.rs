@@ -7,7 +7,7 @@
 //! on restart. Damaged lines (torn, zero-filled or non-UTF-8) are skipped on load. The same
 //! records are what Phase 2 uploads to the coordinator.
 
-use crate::unit::{ENGINE, FORMAT_VERSION, UnitId, UnitResult};
+use crate::unit::{FORMAT_VERSION, UnitId, UnitResult, engine_for};
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
@@ -63,7 +63,9 @@ pub fn load(dir: &Path) -> std::io::Result<HashMap<UnitId, UnitResult>> {
         let Ok(r) = serde_json::from_slice::<UnitResult>(&line) else {
             continue;
         };
-        if r.v == FORMAT_VERSION && r.engine == ENGINE {
+        // Each length counts only the records of the engine that runs it (u128 up to 126 bits,
+        // u256 from 127 to 255).
+        if r.v == FORMAT_VERSION && engine_for(r.bits) == Some(r.engine.as_str()) {
             done.insert(
                 UnitId {
                     bits: r.bits,

@@ -5,11 +5,13 @@
 pub mod digits;
 pub mod layout;
 pub mod state;
+pub mod u256;
 pub mod unit;
+pub mod wide;
 
-use layout::layout;
+use layout::wide_layout;
 use std::collections::HashMap;
-use unit::{UnitId, UnitResult, unit_plan};
+use unit::{UnitId, UnitResult, unit_plan_free};
 
 /// Progress of one bit length in a set of results.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,15 +34,20 @@ impl BitsStatus {
 pub fn status(done: &HashMap<UnitId, UnitResult>, to_bits: u32, unit_bits: u32) -> Vec<BitsStatus> {
     let mut counts: HashMap<u32, u64> = HashMap::new();
     for r in done.values() {
-        if let Some(l) = layout(r.bits) {
-            let (ub, units) = unit_plan(&l, unit_bits);
+        // Lengths outside the report are never read; skipping them also keeps a stray record
+        // (bits 0 or past the widest engine) from reaching the layout.
+        if !(1..=to_bits).contains(&r.bits) {
+            continue;
+        }
+        if let Some(l) = wide_layout(r.bits) {
+            let (ub, units) = unit_plan_free(l.free(), unit_bits);
             if r.unit_bits == ub && r.units == units && r.unit < units {
                 *counts.entry(r.bits).or_default() += 1;
             }
         }
     }
     (1..=to_bits)
-        .map(|bits| match layout(bits) {
+        .map(|bits| match wide_layout(bits) {
             None => BitsStatus {
                 bits,
                 free: 0,
@@ -48,7 +55,7 @@ pub fn status(done: &HashMap<UnitId, UnitResult>, to_bits: u32, unit_bits: u32) 
                 done: 0,
             },
             Some(l) => {
-                let (_, units) = unit_plan(&l, unit_bits);
+                let (_, units) = unit_plan_free(l.free(), unit_bits);
                 let done = counts.get(&bits).copied().unwrap_or(0);
                 BitsStatus {
                     bits,

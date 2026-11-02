@@ -1,5 +1,6 @@
-//! Checks for the wide-integer spike (#22). The candidate types and the hot loop live in
-//! `benches/wide/` and are shared with the benchmark, so what is tested is what is timed.
+//! Checks for the wide-integer types (spike #22). Since #26 the hand-rolled u256 and the hot
+//! loop are the production u256 engine in `src/`; `benches/wide/` re-exports them and adds the
+//! bnum comparison type, so what is tested is what is timed and what `search` runs.
 //!
 //! Three kinds of check:
 //! * the existing 126-bit engine's results are re-derived by every candidate type;
@@ -9,14 +10,15 @@
 #[path = "../benches/wide/mod.rs"]
 mod wide;
 
-use bnum::types::U256 as BnumU256;
 use palhunt::digits::DecimalChecker;
 use palhunt::layout::layout;
 use palhunt::unit::{UnitResult, run_unit};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::hint::black_box;
-use wide::engine::{Limbs, Wide, WideDecimal, WideLayout, WideUnitResult, run_wide_unit, wide_layout};
+use wide::engine::{
+    Bnum as BnumU256, Limbs, Wide, WideDecimal, WideLayout, WideUnitResult, run_wide_unit, wide_layout,
+};
 use wide::reference;
 use wide::u256::U256;
 
