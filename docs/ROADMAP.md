@@ -51,5 +51,5 @@ Issues: P1-1 (#13) exists; the rest are created when Phase 1 starts.
 | Coordinator hosting | Railway plus Postgres (Joe already uses both). | Start of Phase 2 |
 
 Small questions found while writing the issues (answer before the issue starts):
-- Which CPU is in the Windows PC, and is it on the same network as the Mac? (P0-2 copies a results log between them.)
+- ~~Which CPU is in the Windows PC, and is it on the same network as the Mac?~~ Answered by Joe, 2 Nov 2026: Ryzen 7 5800X3D, same network as the Mac (both reach his Raspberry Pi Pi-hole), so the cross-verification log copy can go over the LAN.
 - Should the default state directory move from `./palhunt-state` to the platform data directory before Phase 2? Not needed for Phase 0.
