@@ -55,7 +55,13 @@ A unit is fully defined by (format version, engine, bits, unit_bits, unit). Its 
 
 ### Checkpointing
 
-`results.jsonl` is append-only. Each finished unit is written and synced before the next, so a crash or a closed laptop loses at most the units in flight. A torn last line is skipped on load and the file is repaired on the next open. A restart skips every unit already logged.
+`results.jsonl` is append-only. Finished units are written in groups (group commit): one writer thread collects the units that finish within 200 ms (or 256 units, whichever comes first), appends them with one write and makes the group durable with one sync, while the workers keep computing. A unit counts as durable once the sync of its group has returned.
+
+**Durability window.** A crash, a SIGKILL, a power cut or a closed laptop loses the finished units that had not reached a sync yet: the ones that finished in roughly the last 200 ms, plus any that finished during the one disk sync in progress (normally a few ms), and never more than 256 units in a group. Those units are simply redone on restart, and a redone unit gives the identical result. Nothing already synced is lost. Before this change each unit was synced on its own, so the window was only the units in flight, but the single writer then limited the whole search (section 7).
+
+A crash can leave a torn last line, or on power loss zero-filled or non-UTF-8 bytes. The loader skips any line that does not parse as a current-format record, and the next open starts a fresh line, so damage is never fatal and never needs rewriting. A restart skips every unit already logged. The record format is unchanged, so logs written before and after group commit read and verify the same way.
+
+The writer is a single thread, so lines never interleave. The order of lines in the file follows completion order and has no meaning; a result depends only on its unit id.
 
 ### Verification
 
@@ -103,4 +109,4 @@ Search 126 bits end to end on the M4 Pro at the default unit size (`unit_bits` 2
 | 24 | 256 | 1.6 s | 2.6 G/s | about 12.6 |
 | 26 | 64 | 1.8 s | 2.3 G/s | about 10.9 |
 
-Reading: one core does about 273 M candidates/s, and the engine scales linearly to 4 threads, then flattens at about 1.1 G/s at the default unit size. With 4x fewer units the same work runs 2.7x faster and uses about 13 of 14 cores, so the limit at the default is per-unit overhead, most likely the per-unit log sync done by one thread. This is a strong inference from timings, not a direct measurement of the sync. Fix: issue #13 (P1-1). `unit_bits` 26 is slower than 24 because 64 units leave the last cores idle.
+Reading: one core does about 273 M candidates/s, and the engine scales linearly to 4 threads, then flattens at about 1.1 G/s at the default unit size. With 4x fewer units the same work runs 2.7x faster and uses about 13 of 14 cores, so the limit at the default is per-unit overhead, most likely the per-unit log sync done by one thread. This is a strong inference from timings, not a direct measurement of the sync. Fix: issue #13 (P1-1), group commit as described under Checkpointing. The numbers in these tables are from before that fix; the re-measurement at `unit_bits` 22 is still to be taken on the M4 Pro. `unit_bits` 26 is slower than 24 because 64 units leave the last cores idle.

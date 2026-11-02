@@ -141,11 +141,14 @@ fn search(from: u32, to: u32, unit_bits: u32, dir: PathBuf, threads: Option<usiz
         std::thread::scope(|s| {
             let (l, dec, todo) = (&l, &dec, &todo);
             s.spawn(move || {
-                todo.par_iter().for_each_with(tx, |tx, &i| {
-                    let _ = tx.send(run_unit(l, unit_bits, i, dec));
+                // Stops early if the log writer gave up (the receiver is dropped).
+                let _ = todo.par_iter().try_for_each_with(tx, |tx, &i| {
+                    tx.send(run_unit(l, unit_bits, i, dec)).map_err(|_| ())
                 });
             });
-            for r in rx {
+            // Group commit: this thread batches finished units and syncs each batch once, while
+            // the workers keep computing.
+            write_err = state::commit_loop(&mut log, rx, state::CommitPolicy::default(), |r| {
                 tested += r.candidates;
                 for h in &r.hits {
                     let tag = if h.trivial { "trivial" } else { "NON-TRIVIAL HIT" };
@@ -154,12 +157,8 @@ fn search(from: u32, to: u32, unit_bits: u32, dir: PathBuf, threads: Option<usiz
                         h.n, h.hex, h.base12
                     );
                 }
-                if write_err.is_none()
-                    && let Err(e) = log.append(&r)
-                {
-                    write_err = Some(e.to_string());
-                }
-            }
+            })
+            .err();
         });
         if let Some(e) = write_err {
             return Err(format!("could not write the log: {e}"));
