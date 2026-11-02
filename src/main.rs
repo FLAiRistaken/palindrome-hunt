@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
-use palhunt::digits::{DecimalChecker, is_palindrome};
-use palhunt::layout::{MAX_BITS, layout};
-use palhunt::unit::{DEFAULT_UNIT_BITS, UnitId, UnitResult, run_unit, unit_plan};
+use palhunt::digits::is_palindrome;
+use palhunt::layout::{MAX_WIDE_BITS, layout};
+use palhunt::unit::{Checkers, DEFAULT_UNIT_BITS, Length, UnitId, UnitResult};
 use palhunt::{frontier, state, status};
 use rayon::prelude::*;
 use std::path::PathBuf;
@@ -19,7 +19,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Search every bit length in a range, resuming from the state directory.
+    /// Search every bit length in a range (1 to 255), resuming from the state directory.
+    /// Lengths up to 126 run on the u128 engine, 127 to 255 on the u256 engine.
     Search {
         #[arg(long, default_value_t = 1)]
         from_bits: u32,
@@ -36,7 +37,7 @@ enum Cmd {
     },
     /// Show progress, the verified frontier and every hit in the state directory.
     Status {
-        #[arg(long, default_value_t = MAX_BITS)]
+        #[arg(long, default_value_t = MAX_WIDE_BITS)]
         to_bits: u32,
         #[arg(long, default_value_t = DEFAULT_UNIT_BITS)]
         unit_bits: u32,
@@ -93,8 +94,10 @@ fn main() -> ExitCode {
 type Res = Result<(), String>;
 
 fn check_bits(from: u32, to: u32) -> Res {
-    if from < 1 || to > MAX_BITS || from > to {
-        return Err(format!("bit range must be within 1..={MAX_BITS} and from <= to"));
+    if from < 1 || to > MAX_WIDE_BITS || from > to {
+        return Err(format!(
+            "bit range must be within 1..={MAX_WIDE_BITS} and from <= to"
+        ));
     }
     Ok(())
 }
@@ -109,7 +112,7 @@ fn search(from: u32, to: u32, unit_bits: u32, dir: PathBuf, threads: Option<usiz
     }
     let done = state::load(&dir).map_err(|e| e.to_string())?;
     let mut log = state::Log::open(&dir).map_err(|e| e.to_string())?;
-    let dec = DecimalChecker::new();
+    let checkers = Checkers::new();
     println!(
         "palhunt {}: bits {from}..={to}, {} threads, log {}",
         env!("CARGO_PKG_VERSION"),
@@ -119,10 +122,10 @@ fn search(from: u32, to: u32, unit_bits: u32, dir: PathBuf, threads: Option<usiz
     let started = Instant::now();
     let mut tested: u64 = 0;
     for bits in from..=to {
-        let Some(l) = layout(bits) else {
+        let Some(l) = Length::new(bits) else {
             continue;
         };
-        let (ub, units) = unit_plan(&l, unit_bits);
+        let (ub, units) = l.unit_plan(unit_bits);
         if units > MAX_LOCAL_UNITS {
             return Err(format!(
                 "{bits} bits needs {units} units of 2^{ub}; that is beyond a local run. \
@@ -139,11 +142,11 @@ fn search(from: u32, to: u32, unit_bits: u32, dir: PathBuf, threads: Option<usiz
         let (tx, rx) = mpsc::channel::<UnitResult>();
         let mut write_err = None;
         std::thread::scope(|s| {
-            let (l, dec, todo) = (&l, &dec, &todo);
+            let (l, checkers, todo) = (&l, &checkers, &todo);
             s.spawn(move || {
                 // Stops early if the log writer gave up (the receiver is dropped).
                 let _ = todo.par_iter().try_for_each_with(tx, |tx, &i| {
-                    tx.send(run_unit(l, unit_bits, i, dec)).map_err(|_| ())
+                    tx.send(l.run(unit_bits, i, checkers)).map_err(|_| ())
                 });
             });
             // Group commit: this thread batches finished units and syncs each batch once, while
@@ -166,10 +169,11 @@ fn search(from: u32, to: u32, unit_bits: u32, dir: PathBuf, threads: Option<usiz
         let secs = t0.elapsed().as_secs_f64();
         let cands = (todo.len() as f64) * (1u64 << ub) as f64;
         println!(
-            "bits {bits:>3}: {} units of 2^{ub}, {:.3e} candidates in {secs:.2}s ({:.1} M/s)",
+            "bits {bits:>3}: {} units of 2^{ub}, {:.3e} candidates in {secs:.2}s ({:.1} M/s, {})",
             todo.len(),
             cands,
-            cands / secs.max(1e-9) / 1e6
+            cands / secs.max(1e-9) / 1e6,
+            l.engine()
         );
     }
     println!(
@@ -195,7 +199,9 @@ fn show_status(to: u32, unit_bits: u32, dir: PathBuf) -> Res {
         println!("verified frontier: every base-2+16 palindrome below 2^{f} has been tested");
     }
     let mut hits: Vec<_> = done.values().flat_map(|r| r.hits.iter()).collect();
-    hits.sort_by_key(|h| h.n.parse::<u128>().unwrap_or(0));
+    // Numeric order without parsing: the strings have no leading zeros, so a shorter one is
+    // smaller, and equal lengths compare as text. Exact for values of any width.
+    hits.sort_by(|a, b| (a.n.len(), &a.n).cmp(&(b.n.len(), &b.n)));
     let non_trivial = hits.iter().filter(|h| !h.trivial).count();
     let shown: Vec<_> = hits.iter().map(|h| h.n.as_str()).collect();
     println!(
@@ -215,12 +221,12 @@ fn verify(sample: usize, dir: PathBuf) -> Res {
     ids.sort_by_key(|u| (u.bits, u.index));
     let step = (ids.len() / sample.max(1)).max(1);
     let picked: Vec<_> = ids.iter().step_by(step).take(sample).collect();
-    let dec = DecimalChecker::new();
+    let checkers = Checkers::new();
     let mut bad = 0;
     for id in &picked {
         let logged = &done[id];
-        let l = layout(id.bits).ok_or("logged unit for an empty bit length")?;
-        let again = run_unit(&l, logged.unit_bits, id.index, &dec);
+        let l = Length::new(id.bits).ok_or("logged unit for an empty bit length")?;
+        let again = l.run(logged.unit_bits, id.index, &checkers);
         if again.same_work(logged) {
             println!("ok   bits {} unit {} fold {}", id.bits, id.index, again.fold);
         } else {

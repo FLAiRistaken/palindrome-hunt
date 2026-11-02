@@ -1,5 +1,6 @@
-//! Wide-integer spike (#22): candidates per second per core for the engine's hot loop over
-//! different integer types. Not part of `search`; nothing in `src/` uses it.
+//! Wide-integer benchmark (spike #22): candidates per second per core for the engine's hot loop
+//! over different integer types. Since #26 the loop and the hand-rolled u256 it times are the
+//! production u256 engine (`palhunt::wide`); bnum stays as a comparison.
 //!
 //! ```text
 //! cargo bench --bench wide_int -- --label "Apple M4 Pro, 14 cores"
@@ -18,13 +19,14 @@
 
 mod wide;
 
-use bnum::types::U256 as BnumU256;
 use palhunt::digits::DecimalChecker;
 use palhunt::layout::layout;
 use palhunt::unit::run_unit;
 use std::hint::black_box;
 use std::time::Instant;
-use wide::engine::{Wide, WideDecimal, WideLayout, WideUnitResult, run_wide_unit, wide_layout};
+use wide::engine::{
+    Bnum as BnumU256, Wide, WideDecimal, WideLayout, WideUnitResult, run_wide_unit, wide_layout,
+};
 use wide::u256::U256;
 
 struct Opts {
