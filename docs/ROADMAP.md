@@ -15,7 +15,7 @@ Tooling, process and extra features are not a way around the gate: a change that
 Done when:
 - The repo builds and tests from the documented commands, locally and in CI.
 - All four required checks are green on a PR, and `main` is protected with squash-only merges.
-- The engine runs on Joe's Apple Silicon Mac and Windows PC using every core, resumes after being killed, reaches the 126-bit frontier with only the trivial hits, and a results log from one machine verifies exactly on the other (P0-2).
+- The engine runs on Joe's Apple Silicon Mac, resumes after being killed, reaches the 126-bit frontier with only the trivial hits, and its log verifies (P0-2, Mac half; done 2 Nov 2026). **Amended by Joe, 2 Nov 2026:** the Windows PC is not in use yet, so the PC run and the cross-machine verification (both directions) moved to the start of Phase 1. The Mac run also found that the engine uses about 4 of 14 cores at the default unit size because of per-unit log overhead; that fix is P1-1 (#13) and is not a Phase 0 blocker.
 - token-savior is checked against Rust and the result is in `ORCHESTRATOR_CONTEXT.md`.
 
 Issues: P0-1 to P0-5 (`scripts/seed-issues/`).
@@ -28,8 +28,10 @@ Done when:
 - `palhunt search` reaches 160 bits on Joe's Mac (Joe verifies; candidates per second per core recorded in `SPEC.md` section 7).
 - A unit can be handed to and run on another machine from its id alone (`palhunt run-unit` or equivalent), and its result verifies on the first machine. This is the client half of Phase 2.
 - `palhunt status` and the log work unchanged for lengths past 126.
+- Carried from Phase 0: the engine runs on the Windows PC, and results logs from the Mac and the PC verify exactly on each other in both directions (`verify --sample 200`).
+- P1-1 (#13) is done: at the default unit size the Mac search is no longer limited by the results log (target: near the 2.6 G/s measured at `unit_bits` 24; Joe measures).
 
-Issues: created when Phase 0 is done.
+Issues: P1-1 (#13) exists; the rest are created when Phase 1 starts.
 
 ## Phase 2 and later
 

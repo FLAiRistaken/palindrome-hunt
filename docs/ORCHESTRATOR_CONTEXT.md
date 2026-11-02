@@ -20,6 +20,8 @@ Measured during the bootstrap (2 Nov 2026), on a 2-core Linux sandbox:
 - Enumerator equals brute force for every length up to 28 bits.
 - Every base-2+16 palindrome below 2^126 tested in 41 seconds, 150 to 210 M candidates/s. Hits: 1, 3, 5, 7, 9 only. 25 sampled units re-ran identically.
 
+Measured on Joe's M4 Pro (2 Nov 2026, P0-2): 126 bits in 7.2 to 7.8 s; one core about 273 M candidates/s; kill and resume proven (SIGKILL at 648 units, restart redid nothing logged); the default unit size leaves the 14 cores mostly idle because of per-unit log overhead (P1-1, #13). Details in `SPEC.md` section 7.
+
 Proposed, not yet confirmed:
 - Orchestrator chats on Opus 5.5 at `medium`; implementation on Sonnet 5.5 (section 5).
 - Phase 2 gate replaced by Phase 1's Definition of Done, and Phases 2 and 3 swapped (`ROADMAP.md`, "Open decisions").
@@ -86,3 +88,4 @@ Branch protection for `main` (Joe sets it; orchestrator sessions can't change re
 - 0.1, 2 Nov 2026: created from the plan agreed in chat and the Pivot workflow (skill `new-project-bootstrap`). Rust profile derived for this project; the skill has no Rust profile yet.
 - 0.2, 2 Nov 2026: section 6 corrected: docs-only PRs skip steps, not jobs (see above).
 - 0.3, 2 Nov 2026: section 5: token-savior checked on Rust in P0-5 (works on the Mac only).
+- 0.4, 2 Nov 2026: Phase 0 measurements recorded (section 2); PC half of P0-2 moved to Phase 1.

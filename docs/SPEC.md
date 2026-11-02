@@ -81,3 +81,26 @@ The default state directory is `./palhunt-state`.
 | Date | Machine | Verified below | Hits |
 | :--- | :--- | :--- | :--- |
 | 2 Nov 2026 | Bootstrap sandbox, 2 cores | 2^126 (about 8.5 x 10^37) | 1, 3, 5, 7, 9 (all trivial) |
+| 2 Nov 2026 | Apple M4 Pro, 14 logical cores (Joe's Mac) | 2^126 | 1, 3, 5, 7, 9 (all trivial); 1812 units; 200 sampled units re-ran identically; a run killed with SIGKILL at 648 units resumed to identical totals |
+
+Search 126 bits end to end on the M4 Pro at the default unit size (`unit_bits` 22): 7.2 to 7.8 s, about 1.0 G candidates/s.
+
+### Thread scaling (M4 Pro, bits 123 to 124, 2^32 candidates, `unit_bits` 22)
+
+| Threads | Wall time | Rate | User CPU |
+| ---: | ---: | ---: | ---: |
+| 1 | 15.7 s | 273 M/s | 15.6 s |
+| 2 | 8.2 s | 524 M/s | 16.2 s |
+| 4 | 4.5 s | 954 M/s | 16.8 s |
+| 7 | 4.0 s | 1074 M/s | 17.0 s |
+| 14 | 3.9 s | 1101 M/s | 20.8 s |
+
+### Unit size at 14 threads (same work)
+
+| `unit_bits` | Units | Wall time | Rate | User CPU / wall |
+| ---: | ---: | ---: | ---: | ---: |
+| 22 | 1024 | 4.3 s | 1.0 G/s | about 4.9 |
+| 24 | 256 | 1.6 s | 2.6 G/s | about 12.6 |
+| 26 | 64 | 1.8 s | 2.3 G/s | about 10.9 |
+
+Reading: one core does about 273 M candidates/s, and the engine scales linearly to 4 threads, then flattens at about 1.1 G/s at the default unit size. With 4x fewer units the same work runs 2.7x faster and uses about 13 of 14 cores, so the limit at the default is per-unit overhead, most likely the per-unit log sync done by one thread. This is a strong inference from timings, not a direct measurement of the sync. Fix: issue #13 (P1-1). `unit_bits` 26 is slower than 24 because 64 units leave the last cores idle.
